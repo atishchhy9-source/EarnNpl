@@ -1,0 +1,6 @@
+{
+  "name": "Earn Npl",
+  "description": "Professional Nepali digital earning and wallet application with secure deposits, withdrawals, real-time wallet ledger, and powerful admin management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

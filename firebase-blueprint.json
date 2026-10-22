@@ -1,0 +1,238 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account profile and balance ledger summary in Earn Npl",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 120 },
+        "userCode": { "type": "string", "maxLength": 20 },
+        "balance": { "type": "number" },
+        "pendingDeposits": { "type": "number" },
+        "pendingWithdrawals": { "type": "number" },
+        "totalDeposited": { "type": "number" },
+        "totalWithdrawn": { "type": "number" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "userCode", "balance", "role", "status"]
+    },
+    "DepositRequest": {
+      "title": "DepositRequest",
+      "description": "Deposit submission by user with payment proof and admin review state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userEmail": { "type": "string", "maxLength": 120 },
+        "userCode": { "type": "string", "maxLength": 20 },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 50 },
+        "transactionId": { "type": "string", "maxLength": 100 },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "reviewedBy": { "type": "string", "maxLength": 120 },
+        "reviewedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "idempotencyKey": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "userId", "amount", "paymentMethod", "transactionId", "status"]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "User payout request with recipient details and admin payout status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userEmail": { "type": "string", "maxLength": 120 },
+        "userCode": { "type": "string", "maxLength": 20 },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 50 },
+        "accountNumber": { "type": "string", "maxLength": 100 },
+        "accountName": { "type": "string", "maxLength": 100 },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "paid"] },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "paymentReference": { "type": "string", "maxLength": 100 },
+        "reviewedBy": { "type": "string", "maxLength": 120 },
+        "reviewedAt": { "type": "string" },
+        "paidAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "amount", "paymentMethod", "accountNumber", "accountName", "status"]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable ledger entry for every balance modification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["deposit_credit", "withdrawal_reserve", "withdrawal_refund", "withdrawal_paid", "admin_adjustment", "game_bet", "game_win", "game_loss"] },
+        "amount": { "type": "number" },
+        "previousBalance": { "type": "number" },
+        "newBalance": { "type": "number" },
+        "description": { "type": "string", "maxLength": 300 },
+        "referenceId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["completed", "pending", "failed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "previousBalance", "newBalance", "status"]
+    },
+    "CrashRound": {
+      "title": "CrashRound",
+      "description": "Crash multiplier game rounds with provably fair seed hashes and crash points",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "roundNumber": { "type": "number" },
+        "status": { "type": "string", "enum": ["betting", "flying", "crashed"] },
+        "crashPoint": { "type": "number" },
+        "serverSeedHash": { "type": "string", "maxLength": 128 },
+        "serverSeed": { "type": "string", "maxLength": 128 },
+        "bettingStartTime": { "type": "number" },
+        "bettingEndTime": { "type": "number" },
+        "flyingStartTime": { "type": "number" },
+        "crashedTime": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "roundNumber", "status", "crashPoint", "serverSeedHash"]
+    },
+    "CrashBet": {
+      "title": "CrashBet",
+      "description": "User bets placed in Crash Multiplier game with stakes and payouts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "roundId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userCode": { "type": "string", "maxLength": 20 },
+        "panelIndex": { "type": "number" },
+        "stake": { "type": "number" },
+        "status": { "type": "string", "enum": ["placed", "cashed_out", "crashed"] },
+        "cashedOutMultiplier": { "type": "number" },
+        "payout": { "type": "number" },
+        "profit": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "roundId", "userId", "stake", "status"]
+    },
+    "AdminDoc": {
+      "title": "AdminDoc",
+      "description": "Document marking authorized administrator",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "Global application configuration, QR codes, payment receiver details, game controls, and limits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "minDeposit": { "type": "number" },
+        "minWithdrawal": { "type": "number" },
+        "announcementBanner": { "type": "string", "maxLength": 1000 },
+        "maintenanceMode": { "type": "boolean" },
+        "supportEmail": { "type": "string", "maxLength": 100 },
+        "supportTelegram": { "type": "string", "maxLength": 100 },
+        "supportWhatsapp": { "type": "string", "maxLength": 100 },
+        "gameEnabled": { "type": "boolean" },
+        "gameMinBet": { "type": "number" },
+        "gameMaxBet": { "type": "number" },
+        "gameMaintenance": { "type": "boolean" },
+        "gameName": { "type": "string", "maxLength": 50 },
+        "esewaEnabled": { "type": "boolean" },
+        "esewaId": { "type": "string", "maxLength": 100 },
+        "esewaName": { "type": "string", "maxLength": 100 },
+        "esewaQrCode": { "type": "string" },
+        "esewaInstructions": { "type": "string", "maxLength": 1000 },
+        "khaltiEnabled": { "type": "boolean" },
+        "khaltiId": { "type": "string", "maxLength": 100 },
+        "khaltiName": { "type": "string", "maxLength": 100 },
+        "khaltiQrCode": { "type": "string" },
+        "khaltiInstructions": { "type": "string", "maxLength": 1000 },
+        "bankEnabled": { "type": "boolean" },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "bankAccountName": { "type": "string", "maxLength": 100 },
+        "bankAccountNumber": { "type": "string", "maxLength": 100 },
+        "bankBranch": { "type": "string", "maxLength": 100 },
+        "bankQrCode": { "type": "string" },
+        "bankInstructions": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "minDeposit", "minWithdrawal"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification for deposit and withdrawal updates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 150 },
+        "message": { "type": "string", "maxLength": 500 },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal", "game", "system"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/entities/User",
+      "description": "User account profiles with balance and hold metrics"
+    },
+    "/admins/{adminId}": {
+      "schema": "#/entities/AdminDoc",
+      "description": "Privileged administrator documents"
+    },
+    "/depositRequests/{depositId}": {
+      "schema": "#/entities/DepositRequest",
+      "description": "Deposit requests with transaction ID and payment proof"
+    },
+    "/withdrawalRequests/{withdrawalId}": {
+      "schema": "#/entities/WithdrawalRequest",
+      "description": "Payout requests with recipient details and processing status"
+    },
+    "/walletTransactions/{transactionId}": {
+      "schema": "#/entities/WalletTransaction",
+      "description": "Immutable ledger entries for deposits, reserves, refunds, game bets, and payouts"
+    },
+    "/crashRounds/{roundId}": {
+      "schema": "#/entities/CrashRound",
+      "description": "Active Crash game round state and timing"
+    },
+    "/crashRoundsHistory/{roundId}": {
+      "schema": "#/entities/CrashRound",
+      "description": "Historical completed crash rounds with revealed seeds"
+    },
+    "/crashBets/{betId}": {
+      "schema": "#/entities/CrashBet",
+      "description": "User bets on Crash game with stakes, multipliers, and payouts"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "#/entities/Notification",
+      "description": "User notifications inbox"
+    },
+    "/appSettings/{settingId}": {
+      "schema": "#/entities/AppSetting",
+      "description": "Admin configurable payment methods, QR codes, game settings, minimum limits, and notices"
+    }
+  }
+}

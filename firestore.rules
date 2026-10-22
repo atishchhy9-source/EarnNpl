@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isRuntimeAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'atishchhy9@gmail.com' ||
+        (request.auth.token.keys().hasAll(['email']) && request.auth.token.email.lower() == 'atishchhy9@gmail.com')
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isRuntimeAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin() && isValidId(adminId);
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && isValidId(userId);
+      allow list: if isAdmin();
+      
+      // Initial user creation
+      allow create: if isSignedIn() 
+        && request.auth.uid == userId 
+        && isValidId(userId)
+        && incoming().id == userId
+        && incoming().email is string
+        && incoming().name is string
+        && incoming().userCode is string
+        && incoming().balance == 0
+        && (incoming().role == 'user' || isRuntimeAdmin())
+        && incoming().status == 'active';
+
+      // Updates: regular users can edit display name, pending metrics, and game wallet settlements; role and status changes require admin privilege
+      allow update: if isSignedIn() && isValidId(userId) && (
+        isAdmin() ||
+        (request.auth.uid == userId && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt', 'pendingDeposits', 'pendingWithdrawals']) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'updatedAt', 'pendingDeposits', 'pendingWithdrawals']) && incoming().balance >= 0)
+        ))
+      );
+
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Deposit Requests Collection
+    match /depositRequests/{depositId} {
+      allow get: if isSignedIn() && isValidId(depositId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Deposit request creation
+      allow create: if isSignedIn()
+        && isValidId(depositId)
+        && incoming().userId == request.auth.uid
+        && incoming().amount is number
+        && incoming().amount >= 10
+        && incoming().amount <= 500000
+        && incoming().transactionId is string
+        && incoming().transactionId.size() > 0
+        && incoming().status == 'pending';
+
+      // Admin handles approval/rejection
+      allow update: if isAdmin() 
+        && isValidId(depositId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'rejectionReason', 'reviewedBy', 'reviewedAt']);
+
+      allow delete: if isAdmin() && isValidId(depositId);
+    }
+
+    // Withdrawal Requests Collection
+    match /withdrawalRequests/{withdrawalId} {
+      allow get: if isSignedIn() && isValidId(withdrawalId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(withdrawalId)
+        && incoming().userId == request.auth.uid
+        && incoming().amount is number
+        && incoming().amount >= 50
+        && incoming().amount <= 500000
+        && incoming().accountNumber is string
+        && incoming().accountNumber.size() > 0
+        && incoming().status == 'pending';
+
+      allow update: if isAdmin()
+        && isValidId(withdrawalId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'rejectionReason', 'paymentReference', 'reviewedBy', 'reviewedAt', 'paidAt']);
+
+      allow delete: if isAdmin() && isValidId(withdrawalId);
+    }
+
+    // Wallet Transactions Ledger (Immutable)
+    match /walletTransactions/{transactionId} {
+      allow get: if isSignedIn() && isValidId(transactionId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if (isAdmin() || isSignedIn()) && isValidId(transactionId);
+      allow update, delete: if false; // Strict ledger immutability
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
+
+      allow update: if isSignedIn() 
+        && isValidId(notificationId)
+        && existing().userId == request.auth.uid
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+
+      allow delete: if isSignedIn() && isValidId(notificationId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // App Settings (Admin manages QR codes, limits, payment details, announcements)
+    match /appSettings/{settingId} {
+      allow get: if isSignedIn() && isValidId(settingId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if (isAdmin() || isRuntimeAdmin()) && isValidId(settingId);
+    }
+
+    // Active Crash Game Rounds (Provably fair sync)
+    match /crashRounds/{roundId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(roundId);
+      allow delete: if isAdmin() && isValidId(roundId);
+    }
+
+    // Completed Crash Rounds History
+    match /crashRoundsHistory/{roundId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(roundId);
+      allow update, delete: if isAdmin() && isValidId(roundId);
+    }
+
+    // User Crash Bets
+    match /crashBets/{betId} {
+      allow get: if isSignedIn() && isValidId(betId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() 
+        && isValidId(betId) 
+        && incoming().userId == request.auth.uid
+        && incoming().stake is number
+        && incoming().stake >= 20;
+      allow update: if isSignedIn() 
+        && isValidId(betId) 
+        && (request.auth.uid == existing().userId || isAdmin());
+      allow delete: if isAdmin() && isValidId(betId);
+    }
+  }
+}
